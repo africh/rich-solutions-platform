@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Whitespace Atlas — {sector}</title>
+<style>
+:root{
+  --bg:#0c0e11; --panel:#12151b; --panel2:#161a21; --line:#232833;
+  --ink:#e9ecf3; --muted:#9aa3b5; --faint:#6b7385;
+  --blue:#6aa0ff; --green:#3ecf8e; --amber:#ffb020; --rose:#ff6f6f;
+  --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,"Segoe UI",Inter,system-ui,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;line-height:1.5}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+::selection{background:rgba(106,160,255,.3)}
+
+/* ---------- topbar ---------- */
+.top{position:sticky;top:0;z-index:40;background:rgba(12,14,17,.86);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top .row{display:flex;align-items:center;gap:16px;height:58px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:650;font-size:15px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 12px var(--green)}
+.brand .sub{color:var(--faint);font-weight:500;font-size:12.5px;font-family:var(--mono)}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;padding:8px 12px;min-width:260px}
+.search input{background:none;border:0;outline:0;color:var(--ink);font-size:13.5px;width:100%;font-family:var(--sans)}
+.search svg{flex:0 0 auto;opacity:.6}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{appearance:none;border:0;background:none;color:var(--muted);font-size:12.5px;
+  font-weight:600;padding:6px 11px;border-radius:6px;cursor:pointer;font-family:var(--sans)}
+.seg button.on{background:var(--panel2);color:var(--ink)}
+.seg button:hover{color:var(--ink)}
+
+/* ---------- section chrome ---------- */
+section{padding:46px 0;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+h2{font-size:25px;font-weight:680;margin:0 0 6px;letter-spacing:-.01em}
+.lede{color:var(--muted);font-size:15px;max-width:70ch;margin:0 0 26px}
+.lead-num{font-family:var(--mono);font-size:42px;font-weight:700;line-height:1;
+  letter-spacing:-.02em;margin:0 0 4px}
+
+/* ---------- hero ---------- */
+.hero{padding:64px 0 52px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(60% 90% at 82% 20%,rgba(106,160,255,.10),transparent 60%),
+            radial-gradient(50% 70% at 20% 90%,rgba(62,207,142,.08),transparent 60%)}
+.hero .grid{position:relative}
+.hero h1{font-size:44px;font-weight:720;letter-spacing:-.02em;margin:0 0 14px;line-height:1.06}
+.hero .sub{color:var(--muted);font-size:17px;max-width:62ch;margin:0 0 30px}
+.hstats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.hstat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.hstat .n{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-.02em}
+.hstat .l{color:var(--muted);font-size:12.5px;margin-top:4px}
+
+/* ---------- cards ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px}
+.cgrid{display:grid;gap:14px}
+.c3{grid-template-columns:repeat(3,1fr)}
+.c2{grid-template-columns:repeat(2,1fr)}
+
+/* ---------- table ---------- */
+.twrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;position:sticky;top:0;background:var(--panel)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:rgba(106,160,255,.05)}
+td.num{font-family:var(--mono);text-align:right}
+th.num{text-align:right}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;
+  padding:3px 8px;border-radius:6px;line-height:1.3}
+.pill.critical{background:rgba(255,111,111,.15);color:var(--rose)}
+.pill.high{background:rgba(255,176,32,.14);color:var(--amber)}
+.pill.medium{background:rgba(106,160,255,.14);color:var(--blue)}
+.pill.low{background:rgba(62,207,142,.14);color:var(--green)}
+
+/* ---------- opportunity cards ---------- */
+.op{display:grid;grid-template-columns:1fr;gap:0;position:relative}
+.op .head{display:flex;align-items:flex-start;gap:14px;padding:16px 18px}
+.op .ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;background:var(--panel2);flex:0 0 auto}
+.op .ic svg{width:19px;height:19px}
+.op .ttl{font-weight:660;font-size:15px;margin:0 0 2px}
+.op .meta{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin:0}
+.op .body{padding:0 18px 16px}
+.op .body p{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.op .body .why{color:var(--ink);font-size:13.5px;margin:0 0 12px}
+.op .foot{display:flex;flex-wrap:wrap;gap:8px;padding:0 18px 18px}
+.tag{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:6px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.tag.critical{color:var(--rose);border-color:rgba(255,111,111,.3)}
+.tag.high{color:var(--amber);border-color:rgba(255,176,32,.3)}
+.tag.medium{color:var(--blue);border-color:rgba(106,160,255,.3)}
+.tag.low{color:var(--green);border-color:rgba(62,207,142,.3)}
+
+/* ---------- pipeline ---------- */
+.pipe{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 2px}
+.stage{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:15px;position:relative}
+.stage:not(:last-child){margin-right:26px}
+.stage:not(:last-child)::after{content:"";position:absolute;right:-20px;top:50%;
+  width:26px;height:1px;background:var(--line)}
+.stage .n{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.stage h4{font-size:14.5px;margin:5px 0 6px;font-weight:640}
+.stage p{font-size:12.5px;color:var(--muted);margin:0}
+.stage .k{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:10.5px;
+  color:var(--blue);background:rgba(106,160,255,.1);padding:2px 7px;border-radius:5px}
+
+/* ---------- checklist ---------- */
+.checks{display:grid;grid-template-columns:1fr;gap:9px}
+.check{display:flex;gap:12px;align-items:flex-start;background:var(--panel);
+  border:1px solid var(--line);border-radius:11px;padding:14px 16px}
+.check .mark{width:22px;height:22px;border-radius:6px;flex:0 0 auto;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;background:var(--panel2)}
+.check .mark svg{width:13px;height:13px}
+.check h5{font-size:14px;margin:0 0 3px;font-weight:630}
+.check p{font-size:12.8px;color:var(--muted);margin:0}
+
+/* ---------- footer ---------- */
+.foot{padding:34px 0 60px;color:var(--faint);font-size:12.5px;font-family:var(--mono)}
+
+/* ---------- responsive ---------- */
+@media(max-width:900px){
+  .c3,.c2{grid-template-columns:1fr}
+  .hstats{grid-template-columns:repeat(2,1fr)}
+  .hero h1{font-size:34px}
+  .search{min-width:0;flex:1}
+}
+@media print{
+  .top{display:none}
+  body{background:#fff;color:#111}
+  .card,.hstat,.stage,.check{border-color:#ddd}
+  .lede,.muted{color:#555}
+  section{padding:24px 0}
+  .pipe{flex-wrap:wrap;gap:12px}
+  .stage{margin-right:0!important}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap row">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Whitespace&nbsp;Atlas</span>
+      <span class="sub">/ {sector}</span>
+    </div>
+    <div class="spacer"></div>
+    <label class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input id="q" type="text" placeholder="Filter cards…" autocomplete="off"/>
+    </label>
+    <div class="seg" role="tablist">
+      <button class="on" data-tab="all">All</button>
+      <button data-tab="critical">Critical</button>
+      <button data-tab="high">High</button>
+      <button data-tab="medium">Medium</button>
+      <button data-tab="low">Low</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="grid">
+        <p class="kicker">Wave 1 · Research Atlas</p>
+        <h1>{title}</h1>
+        <p class="sub">{tagline}</p>
+        <div class="hstats">
+          <div class="hstat"><div class="n" data-count="12">0</div><div class="l">Opportunities mapped</div></div>
+          <div class="hstat"><div class="n" data-count="4">0</div><div class="l">Critical gaps</div></div>
+          <div class="hstat"><div class="n" data-count="5">0</div><div class="l">High gaps</div></div>
+          <div class="hstat"><div class="n">~40k</div><div class="l">Buyers in TAM</div></div>
+          <div class="hstat"><div class="n">6–18m</div><div class="l">Build runway</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARKET LAYER ============ -->
+    <section id="market">
+      <p class="kicker">§ 01 · Market layer</p>
+      <h2>Where the whitespace is</h2>
+      <p class="lede">The whitespace lives between the two poles of {sector} software: horizontal ERPs that are feature-rich but generic, and single-purpose tools that solve one job but ignore everything around it. The map below is the working set — the gaps are ranked by how far a buyer will travel to close them.</p>
+
+      <div class="cgrid c3" style="margin-bottom:22px">
+        <div class="card" style="padding:18px">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">North pole</div>
+          <div style="font-weight:650;font-size:15px;margin-bottom:6px">Horizontal ERPs</div>
+          <p style="font-size:13px;color:var(--muted);margin:0">Feature-complete, generic, priced for the enterprise. They ship the module nobody in {sector} actually uses, and under-invest in the workflows that define the day.</p>
+        </div>
+        <div class="card" style="padding:18px">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">South pole</div>
+          <div style="font-weight:650;font-size:15px;margin-bottom:6px">Single-purpose tools</div>
+          <p style="font-size:13px;color:var(--muted);margin:0">Deep on one job, shallow on everything else. The buyer owns 4–6 of them and spends their week in the gaps between.</p>
+        </div>
+        <div class="card" style="padding:18px;border-color:rgba(62,207,142,.35)">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px">The whitespace</div>
+          <div style="font-weight:650;font-size:15px;margin-bottom:6px">The integrated middle</div>
+          <p style="font-size:13px;color:var(--muted);margin:0">A coherent workflow across 3–4 jobs, at a price between the two poles. No incumbent owns this position today — that is the opportunity.</p>
+        </div>
+      </div>
+
+      <div class="twrap">
+        <table id="market-table">
+          <thead><tr>
+            <th>Opportunity</th><th class="num">Gap</th><th class="num">Incumbent reach</th><th class="num">Buyer pain</th><th>Why now</th>
+          </tr></thead>
+          <tbody>
+            <!-- rows injected by build -->
+          </tbody>
+        </table>
+      </div>
+      <p class="lede" style="margin-top:14px;font-size:12.5px">Click any row to jump to the full card. Gaps are scored 1–10 from buyer interviews, not vendor marketing.</p>
+    </section>
+
+    <!-- ============ OPPORTUNITY CARDS ============ -->
+    <section id="opps">
+      <p class="kicker">§ 02 · Opportunity cards</p>
+      <h2>The 12 gaps, ranked</h2>
+      <p class="lede">Each card is a candidate build. The priority reflects how much the buyer will travel to close the gap today, weighted by how weak the incumbent response is and how fast the trigger is moving.</p>
+      <div class="cgrid c2" id="opp-grid">
+        <!-- cards injected by build -->
+      </div>
+    </section>
+
+    <!-- ============ PIPELINE ============ -->
+    <section id="pipeline">
+      <p class="kicker">§ 03 · Build pipeline</p>
+      <h2>Sequencing the first 12 months</h2>
+      <p class="lede">The pipeline orders the cards by build cost and trigger strength, not by size. The early stages are cheap to prove and expensive to be wrong about, so they go first. Each stage has a kill-criterion: if the metric doesn't move, stop and re-rank.</p>
+      <div class="pipe" style="margin-top:8px">
+        <div class="stage">
+          <div class="n">STAGE 01</div>
+          <h4>Prove the trigger</h4>
+          <p>Land the 5 design partners who feel the gap today. Not a demo — a working session on their real data.</p>
+          <span class="k">Kill: &lt; 3 of 5 sign</span>
+        </div>
+        <div class="stage">
+          <div class="n">STAGE 02</div>
+          <h4>Ship the wedge</h4>
+          <p>One job, done better than the incumbent's equivalent. The buyer should be able to retire a tab in their browser.</p>
+          <span class="k">Kill: retention &lt; 70% week 4</span>
+        </div>
+        <div class="stage">
+          <div class="n">STAGE 03</div>
+          <h4>Wire the integration</h4>
+          <p>The data flow that makes the wedge stick: the one that turns "nice tool" into "the system".</p>
+          <span class="k">Kill: NPS &lt; 30 at 3 mo</span>
+        </div>
+        <div class="stage">
+          <div class="n">STAGE 04</div>
+          <h4>Expand the middle</h4>
+          <p>Add the adjacent job the buyer already owns a single-purpose tool for. Price up, not down.</p>
+          <span class="k">Kill: attach &lt; 2 jobs/user</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BUYER CHECKLIST ============ -->
+    <section id="checklist">
+      <p class="kicker">§ 04 · Buyer's checklist</p>
+      <h2>What a buyer will actually check</h2>
+      <p class="lede">Before the first call, the buyer has a list. It is short, it is concrete, and it is not what the vendor deck answers. This is the list, in the order they think it.</p>
+      <div class="checks" style="margin-top:8px">
+        <!-- items injected by build -->
+      </div>
+    </section>
+
+    <div class="foot">
+      <div>Whitespace Atlas · Wave 1 · {sector}</div>
+      <div style="margin-top:6px">Generated from research/{sector}.json · {date}</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ---------- count-up ----------
+document.querySelectorAll('[data-count]').forEach(function(el){
+  var target=parseInt(el.dataset.count,10), t0=null, dur=900;
+  function step(ts){ if(!t0)t0=ts; var p=Math.min((ts-t0)/dur,1);
+    el.textContent=Math.round(target*(0.2+0.8*p*p*p)); if(p<1)requestAnimationFrame(step); }
+  requestAnimationFrame(step);
+});
+
+// ---------- filter + search ----------
+var q=document.getElementById('q');
+var seg=document.querySelectorAll('.seg button');
+var cards=Array.prototype.slice.call(document.querySelectorAll('#opp-grid .op'));
+var rows=Array.prototype.slice.call(document.querySelectorAll('#market-table tbody tr'));
+
+function apply(){
+  var term=q.value.trim().toLowerCase();
+  var tab=document.querySelector('.seg button.on').dataset.tab;
+  cards.forEach(function(c){
+    var p=c.dataset.prio, m=c.dataset.match||'';
+    var okP=(tab==='all'||p===tab);
+    var okT=!term||(m.indexOf(term)>-1);
+    c.style.display=(okP&&okT)?'':'none';
+  });
+  rows.forEach(function(r){
+    var p=r.dataset.prio, m=r.dataset.match||'';
+    var okP=(tab==='all'||p===tab);
+    var okT=!term||(m.indexOf(term)>-1);
+    r.style.display=(okP&&okT)?'':'none';
+  });
+}
+seg.forEach(function(b){ b.addEventListener('click',function(){
+  document.querySelectorAll('.seg button').forEach(function(x){x.classList.remove('on');});
+  b.classList.add('on'); apply(); }); });
+q.addEventListener('input',apply);
+
+// ---------- row click -> card ----------
+document.querySelectorAll('#market-table tbody tr').forEach(function(r){
+  r.addEventListener('click',function(){
+    var id=r.dataset.id;
+    var c=document.querySelector('#opp-grid .op[data-id="'+id+'"]');
+    if(c){ c.scrollIntoView({behavior:'smooth',block:'center'});
+      c.style.transition='box-shadow .4s'; c.style.boxShadow='0 0 0 2px var(--blue)';
+      setTimeout(function(){c.style.boxShadow='';},1400); }
+  });
+});
+</script>
+</body>
+</html>
