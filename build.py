@@ -2,11 +2,20 @@ import json, pathlib, datetime
 
 root = pathlib.Path(__file__).parent
 r = root / "research"
+
+# Load wave-1 industries (research/*.json, excluding factory.json)
 industries = []
-for name in ["public-sector", "education", "nonprofit", "hospitality"]:
-    p = r / f"{name}.json"
-    if p.exists():
+for p in sorted(r.glob("*.json")):
+    if p.name == "factory.json":
+        continue
+    industries.append(json.loads(p.read_text(encoding="utf-8-sig")))
+
+# Load wave-2 industries (research/wave2/*.json)
+w2 = r / "wave2"
+if w2.is_dir():
+    for p in sorted(w2.glob("*.json")):
         industries.append(json.loads(p.read_text(encoding="utf-8-sig")))
+
 factory = json.loads((r / "factory.json").read_text(encoding="utf-8-sig")) if (r / "factory.json").exists() else {}
 
 # recompute scores for consistency and report stats
