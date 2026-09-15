@@ -1,0 +1,97 @@
+name: build-smoke-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "research/**"
+      - "template.html"
+      - "build.py"
+      - ".github/workflows/build-smoke-test.yml"
+  pull_request:
+    paths:
+      - "research/**"
+      - "template.html"
+      - "build.py"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run build
+        run: python build.py
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          # 1. Output exists and is a healthy size
+          test -f whitespace-atlas.html
+          size=$(wc -c < whitespace-atlas.html)
+          echo "whitespace-atlas.html size: ${size} bytes"
+          if [ "${size}" -lt 100000 ]; then
+            echo "ERROR: output suspiciously small" >&2
+            exit 1
+          fi
+
+          # 2. Placeholder tokens must be replaced
+          if grep -q "__DATA__" whitespace-atlas.html; then
+            echo "ERROR: __DATA__ placeholder still present" >&2
+            exit 1
+          fi
+          if grep -q "__DATE__" whitespace-atlas.html; then
+            echo "ERROR: __DATE__ placeholder still present" >&2
+            exit 1
+          fi
+
+          # 3. All four wave-1 industries and the factory must be present in the embedded payload
+          for needle in "Public Sector" "Education" "Nonprofit" "Hospitality" "pattern_library" "pipeline_stages"; do
+            if ! grep -qF "${needle}" whitespace-atlas.html; then
+              echo "ERROR: expected token missing from build: ${needle}" >&2
+              exit 1
+            fi
+          done
+
+          # 4. Score banding: every capability in the data must satisfy
+          #    whitespace_score == ai_readiness * (6 - market_coverage)
+          python - <<'PY'
+          import json, re, sys
+          html = open("whitespace-atlas.html", encoding="utf-8").read()
+          m = re.search(r'const\s+DATA\s*=\s*(.*?);\s*\n', html, re.S)
+          if not m:
+            print("ERROR: embedded DATA payload not found", file=sys.stderr)
+            sys.exit(1)
+          data = json.loads(m.group(1))
+          bad = 0
+          for ind in data["industries"]:
+            for d in ind.get("domains", []):
+              for g in d.get("groups", []):
+                for c in g.get("capabilities", []):
+                  expected = int(c["ai_readiness"]) * (6 - int(c["market_coverage"]))
+                  if int(c.get("whitespace_score", -1)) != expected:
+                    bad += 1
+                    print(f"MISMATCH {ind['industry']} {c.get('id')}: {c.get('whitespace_score')} != {expected}")
+          if bad:
+            sys.exit(f"{bad} capabilities failed score consistency")
+          print("score consistency OK")
+          PY
+
+          # 5. Rebuild determinism (ignoring the date token, which legitimately changes day-to-day)
+          cp whitespace-atlas.html /tmp/atlas-1.html
+          python build.py >/dev/null
+          sed -E 's/<span class="date">[^<]*<\/span>/<span class="date">X<\/span>/' /tmp/atlas-1.html > /tmp/a1
+          sed -E 's/<span class="date">[^<]*<\/span>/<span class="date">X<\/span>/' whitespace-atlas.html > /tmp/a2
+          if ! cmp -s /tmp/a1 /tmp/a2; then
+            echo "ERROR: build is not deterministic" >&2
+            diff /tmp/a1 /tmp/a2 | head -50 >&2 || true
+            exit 1
+          fi
+          echo "determinism OK"
