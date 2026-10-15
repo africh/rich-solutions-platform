@@ -14,6 +14,28 @@ Never commit client names, engagement details, pilot candidates, credentials, to
 4. Never merge, force-push, delete branches or pages, or sign up for paid services or external accounts. Only Alex sets an ADR to Approved.
 5. End every run with exactly one Agent Handoff Log entry (Run = `<Role> - YYYY-MM-DD`, Outcome Progress / No change / Blocked / Failed). If Notion or GitHub is unreachable, still try to log Outcome = Failed with the exact error. If you cannot push, say so in the log and raise a Blocker in the Operator Inbox.
 
+## Run harness
+
+Every run works inside a harness: a plan, the context it needs, scripts that enforce the fixed rules, checks with real evidence, and a handoff. Adapted from the plan → verify → feedback habits Boris Cherny has shared about Claude Code. The Agent Handoff Log is the progress record; this file is the rule memory.
+
+1. **Plan before editing.** Write the run's steps, each naming the files or Notion items it reads and writes, its one output, and the check that proves it. Write the checks before the work. The plan opens the PR description (or the Handoff entry when there is no PR). Routines are unattended, so do not pause for approval: anything that needs Alex goes to the Operator Inbox.
+2. **Load only what a step needs.** The story, its Requirements, its spec, the Approved ADRs it depends on. Keep raw logs out of Notion and PRs; summarise them as paths, verdicts and evidence.
+3. **Scripts enforce fixed rules, not memory.**
+   - `.claude/hooks/guard_git.py` (PreToolUse hook) blocks pushing to `main`, force-push, branch deletion and `gh pr merge`.
+   - `python tools/preflight.py --role <role-slug>` checks branch name, folder ownership, the public-repo secret scan and `python build.py`, and prints a Checks table. Run it before every push; a fail blocks the push.
+   If a required tool is unavailable, name the blocker and finish the steps that can still be done.
+4. **Verify with real signals.** Each output proves itself: preflight, tests, the build, the rendered file, a re-read of the Notion row you changed. Your own confidence counts last. Record a Checks table, `Step | Requirement | Verdict | Evidence`, with verdict `pass`, `fail` or `unresolved`. Leave missing evidence visible as `unresolved`. Never weaken a check to get a pass.
+5. **Feedback loop.** A failed check sends only that step back, with the reason and the evidence. At most three attempts per step; after that mark it `fail`, set Outcome = Blocked if it blocks the story, and raise an Operator Inbox item.
+6. **Completion checklist** before the Handoff entry: every output exists and opens at its path or URL; every check ran against the pushed version; failures are fixed or reported; rule proposals are recorded.
+7. **Handoff.** The Handoff Log entry's What Changed carries: Plan (steps done / blocked), Outputs (exact paths and URLs), Decisions (and why), Open issues, and Next Agent Pickup as the next ready step. Report usage only when measured; never estimate it from the prompt.
+8. **Memory.** When you catch a mistake, or a correction lands (a QA defect, a review comment from Alex, a red CI run), add `Rule proposal: <one-line rule>` to your Handoff entry. The Technical Architect folds proposals into **Learned rules** below by PR, so the next run never repeats the mistake.
+
+## Learned rules
+
+Rules added from Rule proposals in the Handoff Log. One line each, newest last, with the date and source run.
+
+- _None yet._
+
 ## Git workflow
 
 - Branch: `agent/<role>/<story-id>`, e.g. `agent/technical-architect/SB-2`. Role slugs: `project-manager`, `business-analyst`, `enterprise-architect`, `technical-architect`, `developer`, `qa-reviewer`, `resource-manager`.
@@ -25,7 +47,7 @@ Never commit client names, engagement details, pilot candidates, credentials, to
 
 | Path | Owner | Notes |
 |---|---|---|
-| `AGENTS.md`, `.github/pull_request_template.md`, `.github/CODEOWNERS`, `docs/README.md`, every `docs/*/README.md`, other repo scaffolding | Technical Architect | Folder owners may propose README changes via the Operator Inbox |
+| `AGENTS.md`, `.github/pull_request_template.md`, `.github/CODEOWNERS`, `.claude/`, `tools/`, `docs/README.md`, every `docs/*/README.md`, other repo scaffolding | Technical Architect | Folder owners may propose README changes via the Operator Inbox |
 | `docs/design/`, `docs/specs/` | Technical Architect | Specs are named `<story-id>.md` |
 | `docs/adr/` | Technical Architect (technical ADRs), Enterprise Architect (enterprise ADRs) | Matching Decisions Log row required |
 | `docs/togaf/` | Enterprise Architect | |
