@@ -116,7 +116,7 @@ Phase 1 needs **no** agent credentials: the agent commits locally and you push. 
 
 1. **Ruleset on `main`** (Settings → Rules → Rulesets → New branch ruleset, target `main`):
    - Require a pull request before merging, 1 approval, require review from Code Owners.
-   - Require status check `build-smoke-test`.
+   - Do **not** require `build-smoke-test` yet. It only runs when `research/`, `template.html` or `build.py` change, so a docs-only PR would wait forever on a check that never reports, and it currently fails on `main` (placeholder `research/*.json`). Add a required check once there is one that runs on every PR, e.g. a workflow without path filters or a skip job that reports success for unrelated paths. `.github/workflows/` is operator-owned, so that is your decision.
    - Block force pushes; restrict deletions.
    - Bypass list: you only.
 
@@ -196,7 +196,7 @@ Optional hard guarantee for check 3: a Windows Firewall outbound rule that block
 |---|---|
 | Alex | Kill switch, merges, ADR approval, promotion/demotion of task classes, GitHub App and its keys |
 | Resource Manager (cloud) | Sets `Runtime` on stories using the routing rules; weekly local-tier metrics |
-| QA Reviewer (cloud) | Reviews every `runtime:local` PR; files Defects with `Runtime = Local` |
+| QA Reviewer (cloud) | Reviews every `runtime:local` PR; files Defects for them, marked local (Defects has no `Runtime` property yet; until it is added, start Steps / Evidence with `Runtime: Local`) |
 | Local agent (`rslocal`) | Executes one card at a time; writes RUN_REPORT.md; stops on BLOCKED |
 
 **Kill switch** (any one is enough, from least to most drastic):

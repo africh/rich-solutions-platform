@@ -1,4 +1,4 @@
-# ADR-001: Hybrid cloud/local agent runtime
+# ADR-002: Hybrid cloud/local agent runtime
 
 ## Status
 
@@ -28,7 +28,8 @@ Adopt option 3 as described in [docs/design/hybrid-agent-runtime.md](../design/h
 ## Consequences
 
 - `AGENTS.md` needs a follow-up change (Technical Architect, after approval): `local-<role>` branch slugs, the `runtime:local` label, the `Runtime` field, and how local runs log to the Agent Handoff Log.
-- Notion Sprint Board gains a `Runtime` property and the Agent Handoff Log a `Runtime` property (operator or PM to add).
+- Notion Sprint Board gains a `Runtime` property and the Agent Handoff Log a `Runtime` property (operator or PM to add). A `Runtime` property on Defects is optional; until it exists, the QA Reviewer marks local defects in Steps / Evidence.
+- No required status check is added for now: `build-smoke-test` is path-filtered and would block docs-only PRs. A check that runs on every PR is an operator decision.
 - The Resource Manager takes on routing and weekly local-tier metrics.
 - The QA Reviewer's load rises with local PR volume; a WIP limit of 2 open local PRs caps it.
 - The workstation is not on the critical path; if it is offline, cards return to `Cloud`.
@@ -37,4 +38,4 @@ Adopt option 3 as described in [docs/design/hybrid-agent-runtime.md](../design/h
 ## Links
 
 - Sprint Board story: TBD
-- Decisions Log row: TBD (confirm ADR number against the Decisions Log before approval)
+- Decisions Log row: TBD (ADR-002; ADR-001 is the Approved package-structure ADR)

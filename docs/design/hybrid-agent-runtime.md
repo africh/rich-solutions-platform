@@ -1,6 +1,6 @@
 # Hybrid agent runtime: cloud and local agents
 
-Status: Draft, pending [ADR-001](../adr/ADR-001-hybrid-agent-runtime.md) (Proposed).
+Status: Draft, pending [ADR-002](../adr/ADR-002-hybrid-agent-runtime.md) (Proposed).
 Setup and operations: [local-agent-setup-and-governance.md](local-agent-setup-and-governance.md).
 
 ## 1. Goal
