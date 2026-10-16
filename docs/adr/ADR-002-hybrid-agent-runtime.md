@@ -37,5 +37,6 @@ Adopt option 3 as described in [docs/design/hybrid-agent-runtime.md](../design/h
 
 ## Links
 
-- Sprint Board story: TBD
-- Decisions Log row: TBD (ADR-002; ADR-001 is the Approved package-structure ADR)
+- Sprint Board story: SB-14 "ADR-002: Hybrid cloud/local agent runtime (design + governance guide)" (Notion Sprint Board)
+- Decisions Log row: ADR 2, Proposed (Notion Decisions Log)
+- PR: [#9](https://github.com/africh/rich-solutions-platform/pull/9)
