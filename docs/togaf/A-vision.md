@@ -6,8 +6,8 @@
 - **Story:** SB-4 "TOGAF Preliminary + Phase A Architecture Vision" (Notion Sprint Board)
 - **Sources:** Notion Vision Brief (approved 2026-10-13, gate G0), [`GOAL.md`](../../GOAL.md), [`README.md`](../../README.md)
 - **Related requirements:** REQ-1 to REQ-15; see [`docs/requirements/traceability.md`](../requirements/traceability.md)
-- **Related ADRs:** ADR-001 2GP package structure and knowledge-graph sync (Proposed)
-- **Principles:** [principles.md](principles.md)
+- **Related ADRs:** ADR-001 2GP package structure and knowledge-graph sync (Approved 2026-10-15)
+- **Principles:** [principles.md](principles.md) · **Next:** [Phase B Business Architecture](B-business.md)
 
 The Notion Vision Brief is the source of truth for scope. This document restates it in TOGAF terms and connects it to the whitespace model in GOAL.md. If the two ever disagree, the Vision Brief wins and the difference is raised in the Operator Inbox.
 
