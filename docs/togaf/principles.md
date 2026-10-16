@@ -5,7 +5,7 @@
 - **Owner:** Enterprise Architect
 - **Story:** SB-4 "TOGAF Preliminary + Phase A Architecture Vision" (Notion Sprint Board)
 - **Related requirements:** REQ-1 to REQ-8 (MVP), REQ-9 to REQ-11 (out of scope), REQ-12 to REQ-15 (waiting on Alex); see [`docs/requirements/traceability.md`](../requirements/traceability.md)
-- **Related ADRs:** ADR-001 2GP package structure and knowledge-graph sync (Proposed, Technical Architect)
+- **Related ADRs:** ADR-001 2GP package structure and knowledge-graph sync (Approved 2026-10-15, Technical Architect)
 - **Next:** [Phase A Architecture Vision](A-vision.md)
 
 These principles bind every architecture artifact, ADR, spec and pull request for the Rich Solutions Platform. When two principles pull in different directions, the conflict goes to the Operator Inbox; agents do not resolve it silently. Changes to this file need Alex's approval through the Operator Inbox.
