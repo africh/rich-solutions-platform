@@ -2,7 +2,7 @@
 
 Owner: Business Analyst. Requirements are authored in the Notion Requirements database; this file is a public-safe copy of the trace from requirement to story to spec to PR. Story IDs are Sprint Board IDs (shown in Notion as `RSP-n`, referred to as `SB-n` in branch names).
 
-Last updated: 2026-10-14 (seeded from the approved Vision Brief, SB-3).
+Last updated: 2026-10-16 (seeded from the approved Vision Brief in SB-3; refreshed after PRs #2 to #4 merged).
 
 ## Status key
 
@@ -20,10 +20,10 @@ Last updated: 2026-10-14 (seeded from the approved Vision Brief, SB-3).
 | REQ-4 | Knowledge-backed service calls via Agentforce actions | Functional | Must | Approved | Vision Brief, Must do #2 | SB-11 | – | – |
 | REQ-5 | Installs cleanly as an unlocked 2GP package | Constraint | Must | Approved | Vision Brief, Must do #3 | SB-12 | – | – |
 | REQ-6 | Clear IP line between package and per-client logic | Constraint | Must | Approved | Vision Brief, Must do #4 | SB-13 | – | – |
-| REQ-7 | Factory work and decisions logged in Notion | Non-functional | Must | Approved | Vision Brief, Must do #5 | SB-3 | – | this file |
+| REQ-7 | Factory work and decisions logged in Notion | Non-functional | Must | Approved | Vision Brief, Must do #5 | SB-3 | – | #3 |
 | REQ-8 | Runtime-neutral sync format and service contracts | Non-functional | Should | Approved | Vision Brief, Future enhancements | SB-7 | – | – |
 
-Related design work: SB-5 (ADR-001, package structure and sync approach, Proposed) informs REQ-1, REQ-5, REQ-6 and REQ-8.
+Related design work: SB-5 (ADR-001, package structure and sync approach, Approved, PR #2) informs REQ-1, REQ-5, REQ-6 and REQ-8. Specs for SB-7 to SB-13 are pending with the Technical Architect.
 
 ## Waiting on Alex
 
@@ -46,7 +46,7 @@ Related design work: SB-5 (ADR-001, package structure and sync approach, Propose
 
 | Story | Title | Phase | Status | Requirements |
 |---|---|---|---|---|
-| SB-3 | Seed initial requirements from Vision Brief | P0 Foundations | In PR | REQ-7 |
+| SB-3 | Seed initial requirements from Vision Brief | P0 Foundations | Done | REQ-7 |
 | SB-7 | Define runtime-neutral knowledge bundle schema and service contracts | P1 Architecture | Ready for Design | REQ-8 |
 | SB-8 | Knowledge-graph sync: compile Obsidian vault from GitHub and load it into the org | P2 MVP build | Ready for Design | REQ-1 |
 | SB-9 | Knowledge service core and REST endpoints | P2 MVP build | Ready for Design | REQ-2 |
