@@ -4,9 +4,9 @@
 - **Requirements:** REQ-1 Knowledge-graph sync from GitHub-hosted Obsidian vault (Must, Approved)
 - **ADRs:** [ADR-001](../adr/ADR-001-2gp-package-structure-and-knowledge-graph-sync.md) (Approved 2026-10-15), decision points 2 and 3 (sync option A: compile in CI, push through the package's own import endpoint)
 - **Contracts:** [SB-7 spec](SB-7.md) (kg-bundle v1, knowledge services v1). Until PR #7 merges, read it on the branch `agent/technical-architect/SB-7`.
-- **Inputs taken into account:** QA notes 1 and 2 on PR #7 (bundle ordering, re-compile idempotency); Phase C data gaps GD-3 (hard purge) and GD-5 (bundle artifact retention) in `docs/togaf/C-data.md` (PR #10, branch `agent/enterprise-architect/SB-15`); IP boundary in `docs/design/ip-boundary.md` (PR #8, branch `agent/technical-architect/SB-13`); QA review of this spec on PR #11 (M1 to M7, m1 to m8, nits)
+- **Inputs taken into account:** QA notes 1 and 2 on PR #7 (bundle ordering, re-compile idempotency); Phase C data gaps GD-3 (hard purge) and GD-5 (bundle artifact retention) in `docs/togaf/C-data.md` (PR #10, branch `agent/enterprise-architect/SB-15`); IP boundary in `docs/design/ip-boundary.md` (PR #8, branch `agent/technical-architect/SB-13`); QA reviews of this spec on PR #11 (M1 to M7, m1 to m8, nits on 2026-10-19; N1, n1, n2 on 2026-10-20)
 - **Principles:** AP-1 Runtime-neutral contracts, AP-2 One service core, SP-1 Public-repo hygiene ([principles.md](../togaf/principles.md))
-- **Spec author:** Technical Architect, 2026-10-19; revised 2026-10-20 for the QA review on PR #11 (see section 14)
+- **Spec author:** Technical Architect, 2026-10-19; revised 2026-10-20 and 2026-10-21 for the QA reviews on PR #11 (see sections 14 and 15)
 - **Builder:** Developer
 
 ## 1. Goal
@@ -71,7 +71,8 @@ packages/salesforce/force-app/main/service/classes/
   KnowledgeImportService.cls        page intake, validation, state machine
   KnowledgeCommitStepRunner.cls     one bounded unit of commit or rollback work per call; state on the bundle record (7.3)
   KnowledgeImportCommitJob.cls      Queueable that calls the step runner and re-enqueues itself (7.3)
-  KnowledgeImportResumeJob.cls      Schedulable that starts a fresh Queueable chain at the depth limit (7.3)
+  KnowledgeImportResumeJob.cls      Schedulable that starts a fresh Queueable chain at the depth limit or after a failed-step back-off (7.3)
+  KnowledgeSyncWatchdogJob.cls      hourly Schedulable that restarts stalled commits, rollbacks and cleanups (7.3)
   KnowledgeImportPurgeJob.cls       Schedulable + Queueable purge (section 8)
   KnowledgeStore.cls                the only class that reads "current" rows (shared with SB-9)
 packages/salesforce/force-app/main/exposure/classes/
@@ -140,7 +141,7 @@ Packaging (closes QA M6): slice 8a adds `tools/contracts-check/pyproject.toml` s
 ### 4.5 Ids, hashes, chunking and determinism
 
 - Node ids per SB-7 3.1. Two files that slug to the same id: error `ID_COLLISION` naming both paths. Nothing is guessed.
-- **Bundle id** (defines SB-7's `<source.repo-slug>@<source.commit>`, closes QA m3): the repo slug is `--repo` lower-cased, with `/` replaced by `--` and every other character outside `[a-z0-9._-]` replaced by `-`. Example: `Example-Org/KB-Vault` gives `example-org--kb-vault`, and the bundle id is `example-org--kb-vault@<40-hex commit>`. Pattern: `^[a-z0-9][a-z0-9._-]{0,199}@[0-9a-f]{40}$`. The id has no `/`, so it is one URL path segment; kg-push still percent-encodes it (RFC 3986) and runtimes decode it. Intake rejects any other shape with `400 INVALID_REQUEST`.
+- **Bundle id** (defines SB-7's `<source.repo-slug>@<source.commit>`, closes QA m3): the repo slug is `--repo` lower-cased, with `/` replaced by `--` and every other character outside `[a-z0-9._-]` replaced by `-`. Example: `Example-Org/KB-Vault` gives `example-org--kb-vault`, and the bundle id is `example-org--kb-vault@<40-hex commit>`. Pattern: `^[a-z0-9][a-z0-9._-]{0,179}@[0-9a-f]{40}$`, so a bundle id is at most 221 characters, `Bundle_Key__c` at most 238 and `Page_Key__c` at most 245, all inside Text(255) (QA n1). A GitHub `owner--repo` slug is at most 141 characters; a longer slug (only possible with a hand-set `--repo`) makes the compiler exit 1 with `REPO_SLUG_TOO_LONG`. The id has no `/`, so it is one URL path segment; kg-push still percent-encodes it (RFC 3986) and runtimes decode it. Intake rejects any other shape with `400 INVALID_REQUEST`.
 - Canonical JSON for every hash: `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` encoded as UTF-8.
 - Node `contentHash`: SB-7 3.2 (full body plus canonical frontmatter JSON).
 - **Bundle `contentHash` (clarifies SB-7 3.2, which says "over node and edge hashes" but edges have no hash):** sha256 over the canonical JSON of `{"nodes": [[id, contentHash, path, title, kind], ...], "edges": [edge, ...]}`, nodes sorted by id and edges sorted as below, each edge as its full canonical object. Path, title and kind are included so that a case-only rename (`Foo.md` to `foo.md`, same id and same node hash) still changes the bundle hash and is applied (QA m4). Slice 8a writes this rule into the `bundle.contentHash` description in `contracts/kg-bundle/v1/kg-bundle.schema.json` and adds a contracts-check semantic check that recomputes it, so a second compiler that hashes differently fails validation (QA m2). This is a description change plus a check of an existing property, so the bundle schema stays `1.0`.
@@ -232,10 +233,12 @@ Readers must keep seeing the previous committed bundle until a new one commits (
 | `Page_Count__c`, `Pages_Received__c` | Number(6,0) | |
 | `Sequence__c` | Number(10,0), unique (nulls allowed) | Allocated when the commit starts; cleared when a rollback completes (7.3), so a failed commit never holds a sequence number (closes QA M1) |
 | `Attempt__c` | Number(4,0) | 1 on first receipt; incremented when a `failed` import is retried (7.2 step 5) |
-| `Commit_Phase__c` | Picklist `check`, `apply`, `close_unseen`, `switch`, `rollback`, `done` | Step-runner position (7.3) |
+| `Commit_Phase__c` | Picklist `check`, `apply`, `close_unseen`, `switch`, `rollback`, `done` | Step-runner position (7.3). Cleared when `done` finishes, so a `committed` bundle with `Commit_Phase__c = done` has cleanup pending |
 | `Commit_Page__c` | Number(6,0) | Page being applied |
 | `Commit_Cursor__c` | Text(255) | Last node id processed in the current phase (keyset cursor) |
 | `Last_Step_At__c` | Date/Time | Set by every step; the watchdog in 7.3 uses it |
+| `Step_Failures__c` | Number(2,0) | Consecutive failed attempts of a `rollback` or `done` step; reset to 0 by any successful step (7.3) |
+| `Cleanup_Error__c` | Text(255) | Last `done` failure (error code and step, no note text). Internal only: not returned in `ImportStatus`, because the commit itself succeeded |
 | `Is_Current__c` | Checkbox | Exactly one true after the first commit |
 | `Nodes_Upserted__c`, `Nodes_Unchanged__c`, `Nodes_Deleted__c` | Number(9,0) | |
 | `Errors__c` | Long Text Area(131072) | JSON array of SB-7 Error objects, at most 50 items |
@@ -352,10 +355,12 @@ The commit runs as a sequence of bounded **steps**. Each step is one call to `Kn
    - Compute the node's edges hash. No visible edge set, or its `Edges_Hash__c` differs: insert a new `Knowledge_Edge_Set__c` (`Valid_From__c = N`) with its edges, and close the old one.
    - Otherwise nothing is written; the node counts as unchanged.
 4. **close_unseen:** build the set of node ids in this bundle from all pages' `Node_Ids__c`. Walk the node rows visible at *N-1* in `Node_Id__c` order (keyset on `Commit_Cursor__c`). Each one whose id is not in the set gets `Valid_To__c = N`, `Closed_At__c` and `Deleted_At__c`, and its visible edge set is closed too.
-5. **switch:** in one DML statement set the old current bundle `Is_Current__c = false` and this one `Is_Current__c = true`, `State__c = committed`, with the counts. This is the only moment readers move from *N-1* to *N*.
-6. **done:** delete the staged pages (rows, and files through their ContentDocuments). Start the purge job and, if one is waiting, the newest complete `receiving` import (7.2 step 8), each through the chaining rule below.
+5. **switch:** in one DML statement set the old current bundle `Is_Current__c = false` and this one `Is_Current__c = true`, `State__c = committed`, `Commit_Phase__c = done`, with the counts. This is the only moment readers move from *N-1* to *N*, and it is the **point of no return**: once this step's transaction commits, the bundle is never rolled back (closes QA N1). If the switch step itself throws, its savepoint undoes it, nothing has switched, and normal rollback applies.
+6. **done (cleanup):** delete the staged pages (rows, and files through their ContentDocuments). Start the purge job and, if one is waiting, the newest complete `receiving` import (7.2 step 8), each through the chaining rule below. Then clear `Commit_Phase__c`. Every action is idempotent: deleting pages that are already gone is a no-op, the purge job is only enqueued if none is queued or scheduled, and the waiting import is only started if it is still `receiving` with all pages and no import is `committing`. So a `done` step can be repeated any number of times.
 
-**Rollback** (any exception or failed check in any phase; the runner catches it, records `Errors__c`, sets `Commit_Phase__c = rollback`). The bundle stays `committing` while rollback runs, so no other commit can start. Rollback steps use the same budgets: delete versioned rows with `Valid_From__c = N` (their children go by cascade and count against the budget), then set `Valid_To__c`, `Closed_At__c` and `Deleted_At__c` back to null on rows with `Valid_To__c = N`. When none of either is left: delete the staged pages, set `State__c = failed`, **clear `Sequence__c`**, and start any waiting import as in step 6. The current bundle never changed, so the previous knowledge stays queryable (REQ-1 AC 3). If a rollback step itself fails, the record keeps `Commit_Phase__c = rollback` with an `INTERNAL` error and is finished by the next commit's allocate step or by the watchdog.
+**After the switch, failures are retried, never rolled back.** The runner reads the persisted `State__c` before deciding what a failure means. If the bundle is `committed` (phase `done`), the step's savepoint undoes only that step's partial cleanup DML; the runner then sets `Cleanup_Error__c`, increments `Step_Failures__c` and retries the step as described under "Retries" below. The bundle stays current with all its rows, and `State__c`, `Is_Current__c` and every versioned row are left alone. Readers are never affected by a cleanup failure; at worst staged files stay a little longer or the waiting import starts later.
+
+**Rollback** (any exception or failed check in `check`, `apply`, `close_unseen` or `switch`, that is, only while the bundle is still `committing` and has never been current; the runner catches it, records `Errors__c`, sets `Commit_Phase__c = rollback`). The bundle stays `committing` while rollback runs, so no other commit can start. Rollback steps use the same budgets: delete versioned rows with `Valid_From__c = N` (their children go by cascade and count against the budget), then set `Valid_To__c`, `Closed_At__c` and `Deleted_At__c` back to null on rows with `Valid_To__c = N`. When none of either is left: delete the staged pages, set `State__c = failed`, **clear `Sequence__c`**, and start any waiting import as in step 6. The current bundle never changed, so the previous knowledge stays queryable (REQ-1 AC 3). If a rollback step itself fails, its savepoint undoes that step, the record keeps `Commit_Phase__c = rollback` with an `INTERNAL` error, `Step_Failures__c` goes up by one, and the step is retried as below. Because the bundle is still `committing`, no other commit starts in the meantime (7.2 step 8), so recovery comes from these retries and the watchdog, not from the next commit (QA n2). The allocate step's "finish any interrupted rollback" check stays as defence in depth only, for example after an admin edits a record by hand.
 
 Within one step, `System.Savepoint` and `Database.rollback` undo that step's partial DML before the runner records the error, so each step is all or nothing and the cross-step rollback only has to deal with whole steps.
 
@@ -363,7 +368,8 @@ Within one step, `System.Savepoint` and `Database.rollback` undo that step's par
 
 - `KnowledgeImportCommitJob` (Queueable) calls `runStep` once and, if more work remains, enqueues itself. Before enqueuing it reads `System.AsyncInfo.getCurrentQueueableStackDepth()`: below `Max_Chain_Depth__c` it chains (passing `AsyncOptions` with `MaximumQueueableStackDepth` set to the same value); at the limit it schedules `KnowledgeImportResumeJob` once, one minute ahead, which starts a fresh chain. Developer Edition, trial and scratch orgs cap chains at depth 5, so the default of 4 works in every org; production orgs may raise the setting.
 - In Apex tests a Queueable cannot enqueue another one, so tests do not rely on chaining. `KnowledgeCommitStepRunner.runToCompletion(bundleRecordId, maxSteps)` calls `runStep` in a loop in the same transaction and is used by the tests, with small `@TestVisible` budgets so that multi-step paths run on small fixtures. The job skips its own re-enqueue when `Test.isRunningTest()`, and one test enqueues it inside `Test.startTest()`/`Test.stopTest()` to cover a single execution. A `@TestVisible` hook throws in a chosen step, so "failure in a later step" (test 11) is reproducible.
-- **Watchdog:** the daily purge schedule (section 8) also restarts any bundle in `committing` whose `Last_Step_At__c` is more than 15 minutes old and that has no queued or scheduled job, so a lost job never wedges sync.
+- **Retries (rollback and done steps):** when a `rollback` or `done` step fails, the job does not chain straight back into the same failure. It schedules `KnowledgeImportResumeJob` with a back-off of 1, 5 and then 15 minutes for `Step_Failures__c` = 1, 2 and 3. After the third consecutive failure it stops scheduling and leaves the bundle to the watchdog, which keeps retrying once an hour. A transient failure (row lock, enqueue limit) therefore clears within minutes; a persistent one is visible on the record (`Errors__c` or `Cleanup_Error__c`, `Step_Failures__c`, `Last_Step_At__c`) and never loops.
+- **Watchdog:** `KnowledgeSyncWatchdogJob` (Schedulable) runs **hourly** (registered by the SB-12 post-install script alongside the daily purge schedule, section 8). It restarts (a) any bundle in `committing` whose `Last_Step_At__c` is more than 15 minutes old and that has no queued or scheduled job, whatever its phase, including a stalled rollback; and (b) any `committed` bundle with `Commit_Phase__c = done` under the same age and no-job conditions. So a lost job or a stuck rollback blocks sync for at most about 75 minutes, not a day (QA n2). Each restart is one fresh chain and resets the back-off.
 
 The runner is `without sharing` and writes only package objects.
 
@@ -382,9 +388,9 @@ Proposed policy: **soft delete at commit, hard delete after a retention window.*
 - `KnowledgeImportPurgeJob` hard-deletes versioned rows (`Knowledge_Node__c` with its chunks and tags, `Knowledge_Edge_Set__c` with its edges) whose `Valid_To__c <= current sequence` and whose `Closed_At__c` is more than `Purge_After_Days__c` days ago (default 30). This covers both deleted notes and old versions of edited notes. It uses the same DML row budget as the commit steps (cascade children counted) and re-enqueues itself under the same chain-depth rule (7.3). It never runs while an import is `committing`.
 - `Purge_After_Days__c = 0` gives immediate hard delete at the end of every commit, for pilots with strict right-to-delete needs.
 - Bundles: keep the newest `Keep_Bundles__c` (default 10) `Knowledge_Bundle__c` records; delete older ones that are not current and not `committing`. Any staged files left on them are deleted through their ContentDocuments.
-- It runs after every commit and on a daily schedule. The schedule is registered by a post-install script (SB-12), not by the package itself, so install stays free of side effects.
+- It runs after every commit and on a daily schedule. The schedules (daily purge, hourly watchdog) are registered by a post-install script (SB-12), not by the package itself, so install stays free of side effects.
 - Purged rows go to the Recycle Bin by default; the job calls `Database.emptyRecycleBin` on them so purge is final.
-- The same daily schedule runs the commit watchdog (7.3).
+- The commit watchdog has its own hourly schedule (7.3), so a stalled commit does not wait for the daily purge.
 - The retention window exists so an admin can inspect what a bad commit removed. It is not a restore feature; restoring means re-syncing an older vault commit.
 
 The Enterprise Architect records the confirmed policy per pilot in Notion (gap GD-3). The default in the package is the proposal above.
@@ -402,7 +408,9 @@ The Enterprise Architect records the confirmed policy per pilot in Notion (gap G
 | Older bundle | Import endpoint | `409 BUNDLE_CONFLICT` | kg-push exits 1 with the conflict |
 | Cross-page check fails, or Apex error during commit | Commit step runner | Rollback; `failed`; sequence cleared; previous bundle stays current | `GET /bundles/{id}` errors; kg-push exits 1; `Knowledge_Bundle__c` record in the org |
 | Re-send of a `failed` import | Import endpoint | Reset to `receiving` and retried (7.2 step 5) | `Attempt__c` on the bundle record; kg-push sees the new outcome |
-| Commit job lost or chain depth reached | Resume job, watchdog | Fresh chain resumes from the saved phase | `Last_Step_At__c` on the bundle record |
+| Commit job lost or chain depth reached | Resume job, hourly watchdog | Fresh chain resumes from the saved phase | `Last_Step_At__c` on the bundle record |
+| Rollback step fails | Step runner | Step undone; retried with back-off, then by the hourly watchdog; no other commit starts meanwhile | `Errors__c`, `Step_Failures__c` on the bundle record |
+| Cleanup (`done`) fails after the switch | Step runner | Bundle stays `committed` and current with all rows; cleanup retried with back-off, then by the watchdog; never rolled back | `Cleanup_Error__c`, `Step_Failures__c` on the bundle record |
 | Node over the per-node edge or tag limit | kg-compiler | Exit 1 before anything is pushed | Workflow run fails with the path |
 | Commit not finished in time | kg-push timeout | Exit 1; the commit may still finish | Run fails; next run sees the committed state |
 
@@ -422,7 +430,7 @@ Synthetic fixture vaults, all content invented ("Example Corp"):
 | `collision/` (`A B.md` and `A-B.md`) | `ID_COLLISION` exit 1 |
 | `bad-encoding/`, `bad-frontmatter/` | Exit 1 with path |
 | `paging/` (generated 450 small notes) | Page limits by node count, edge count and bytes; edges on the source's page; `NODE_TOO_LARGE`; `NODE_TOO_MANY_EDGES`, `NODE_TOO_MANY_TAGS`, `TAG_TOO_LONG` |
-| Bundle id | `--repo Example-Org/KB-Vault` gives `example-org--kb-vault@<sha>`; the id matches the 4.5 pattern |
+| Bundle id | `--repo Example-Org/KB-Vault` gives `example-org--kb-vault@<sha>`; the id matches the 4.5 pattern; a 180-character slug passes and a 181-character one exits 1 with `REPO_SLUG_TOO_LONG` |
 | Contracts dir | Missing `--contracts-dir` exits 2; a bundle whose `contentHash` is recomputed wrongly fails contracts-check (4.5) |
 | Case-only rename | `Foo.md` renamed `foo.md`: same node id and node hash, different bundle hash |
 | Determinism | Compile `basic/` twice: identical except `generatedAt`; identical `contentHash` |
@@ -445,13 +453,15 @@ Run with `sf apex run test --test-level RunLocalTests` in a development scratch 
 9. Newer bundle while an older one is `receiving`: older becomes `superseded`.
 10. Stats mismatch at finalise: `failed`, rollback, previous bundle still current and readable through `KnowledgeStore`.
 11. Exception injected in a later step (after at least one apply step has written rows): same rollback result; no row with `Valid_From__c = N` remains; `Sequence__c` is null.
-    - 11a: **Commit after a failure** (QA M1): after test 10 or 11, a new import commits and takes the next free sequence. Variant: a rollback interrupted by an injected failure is finished by the next commit's allocate step.
+    - 11a: **Commit after a failure** (QA M1): after test 10 or 11, a new import commits and takes the next free sequence. Variant (QA n2): the hook throws once in a rollback step; the bundle stays `committing` with `Commit_Phase__c = rollback` and `Step_Failures__c = 1`; the job path schedules `KnowledgeImportResumeJob` (checked through `CronTrigger`); running the next step finishes the rollback, clears `Sequence__c` and resets `Step_Failures__c`; then a new import commits.
     - 11b: **Retry of a failed import** (QA M7): the same pages sent again after a failure reset the import to `receiving`, `Attempt__c = 2`, and it commits; `Pages_Received__c` never exceeds `Page_Count__c`.
     - 11c: **Budgets** (QA M3): with a test row budget of 50, a bundle needing several hundred rows commits correctly over many steps; no step goes over its budget (`Limits.getDmlRows()` checked in the hook). Rollback of that bundle also spans several steps.
     - 11d: **Job path** (QA M5): one `KnowledgeImportCommitJob` execution inside `Test.startTest()`/`Test.stopTest()` runs one step and does not enqueue in tests; at the depth limit (depth stubbed through a `@TestVisible` seam) it schedules `KnowledgeImportResumeJob` instead of chaining.
     - 11e: **Ordering re-check** (QA m5): a commit about to start when a newer complete import exists becomes `superseded`, and the newer one commits.
     - 11f: **Case-only rename** (QA m4): path and title are updated at the new sequence.
-    - 11g: **Watchdog**: a `committing` bundle with an old `Last_Step_At__c` and no job is restarted by the daily schedule.
+    - 11g: **Watchdog**: `KnowledgeSyncWatchdogJob.execute` restarts a `committing` bundle with an old `Last_Step_At__c` and no job, both in `apply` and in `rollback`, and a `committed` bundle with `Commit_Phase__c = done`; it ignores bundles with a recent `Last_Step_At__c`. After three failed rollback steps no resume job is scheduled and only the watchdog restarts it.
+    - 11h: **Failure after the switch** (QA N1): the hook throws in the `done` step. The bundle stays `committed` and `Is_Current__c = true`; every row with `Valid_From__c = N` is still there and readable through `KnowledgeStore`; rows closed at *N* stay closed; `Sequence__c` is unchanged; `Cleanup_Error__c` is set and `Errors__c` is not. Running the `done` step again deletes the staged pages, starts a waiting import and clears `Commit_Phase__c`. Running it a third time changes nothing (idempotent).
+    - 11i: **Failure in the switch step**: the hook throws inside `switch`; the savepoint leaves the old bundle current, and normal rollback follows (same result as test 11).
 12. Purge with `Purge_After_Days__c = 0` and with the default (`Closed_At__c` moved back in test data).
 13. Missing `Knowledge_Import` permission: `403` (`System.runAs` a user without the permission set).
 14. Chunked node: chunks stored and reassembled by `KnowledgeStore`.
@@ -479,7 +489,7 @@ Script `packages/salesforce/scripts/e2e-sync.sh`, run by the Developer against a
 |---|---|---|---|
 | 1 | Given a sample vault with notes and wikilinks, a sync run makes notes, links and metadata queryable in a scratch org | Compiler (4), push (5), storage and import (6, 7) | 10.1 `basic/`; 10.2 test 1; 10.3 steps 2 and 3 |
 | 2 | Adds, edits and deletes in the vault are reflected on the next run | Content hash, path, title and kind; versioned node rows and edge sets; close of unseen nodes (7.3) | 10.1 change detection and case-only rename; 10.2 tests 4, 5 and 11f; 10.3 steps 4 and 5a |
-| 3 | An invalid bundle is rejected, prior knowledge stays queryable and the failure is reported | Compiler self-validation (4.2), intake validation (7.2), atomic switch and rollback (6.1, 7.3), retry (7.2 step 5), error reporting (9) | 10.1 bad fixtures; 10.2 tests 7, 10, 11, 11a and 11b; 10.3 steps 5 and 5a |
+| 3 | An invalid bundle is rejected, prior knowledge stays queryable and the failure is reported | Compiler self-validation (4.2), intake validation (7.2), atomic switch, point of no return and rollback (6.1, 7.3), retry (7.2 step 5), error reporting (9) | 10.1 bad fixtures; 10.2 tests 7, 10, 11, 11a, 11b, 11h and 11i; 10.3 steps 5 and 5a |
 | 4 | Uses the sync approach approved in ADR-001 | Option A: compile in CI, push through the package's own import endpoint; bundle is SB-7 kg-bundle v1 | This spec's header and sections 4, 5 and 7; QA review |
 | 5 | REQ-1: notes, links and metadata available in a queryable form | Node, chunk, tag, edge set and edge objects (6.2) read through `KnowledgeStore` | 10.2 test 15; 10.3 step 3 |
 
@@ -501,7 +511,7 @@ Script `packages/salesforce/scripts/e2e-sync.sh`, run by the Developer against a
 
 - Files in section 3 for the slice exist; tests in section 10 for the slice pass, with commands and output in the PR.
 - 8a: no Salesforce code outside `kg_push/auth_salesforce.py`; contracts-check passes on generated output; `tools/contracts-check` gains `pyproject.toml` and the `contentHash` check (4.2, 4.5); `contracts/` changes are limited to the `bundle.id` and `bundle.contentHash` descriptions.
-- 8b: no change to `contracts/` other than the description additions in 7.1, the `BUNDLE_NOT_FOUND` enum value and the `info.version` bump to `1.1.0` (7.2). The 8b PR also adds its entries (the import resource probe and its test classes) to SB-12's `expected-components.json`.
+- 8b: no change to `contracts/` other than the description additions in 7.1, the `BUNDLE_NOT_FOUND` enum value and the `info.version` bump to `1.1.0` (7.2). The 8b PR also adds its entries (the import resource probe and its test classes) to SB-12's `expected-components.json`. It also extends SB-12's `scripts/post-install.sh` (SB-12 5.2 lists only the purge job) so that it schedules `KnowledgeSyncWatchdogJob` hourly as well, idempotently.
 - No client content, credentials, org IDs or instance URLs anywhere, including fixtures and logs.
 - `python build.py` is unaffected (no changes to `research/`, `template.html` or `build.py`).
 - Each PR links SB-8 and this spec. The story's PR Link points at the latest slice PR.
@@ -526,3 +536,11 @@ Script `packages/salesforce/scripts/e2e-sync.sh`, run by the Developer against a
 | m7 ContentVersion delete | Delete through ContentDocument | 6.2, 7.3, 8; test 18 |
 | m8 token masking | `::add-mask::` before writing `$GITHUB_ENV` | 5.1 rule 6; 10.1 |
 | Nits | Section reference 5.1; `System.Savepoint`; branch names for C-data and ip-boundary; GD-5 departure from ADR-001 option A explained | header, 3, 5.3, 7.3 |
+
+## 15. Changes after QA re-review on PR #11 (2026-10-21)
+
+| QA item | Change | Where |
+|---|---|---|
+| N1 rollback can run after `switch` | `switch` is the point of no return and also sets `Commit_Phase__c = done`. Rollback only runs while the bundle is `committing`. A `done` failure is undone by its savepoint, recorded in the new `Cleanup_Error__c`, and retried; every cleanup action is idempotent. The bundle stays current with its rows | 6.2, 7.3 phases 5 and 6, rollback, retries; 9; tests 11h and 11i |
+| n1 `Bundle_Key__c` / `Page_Key__c` over Text(255) | Slug capped at 180 characters (`{0,179}`), so the keys are at most 238 and 245 characters; the compiler rejects a longer slug with `REPO_SLUG_TOO_LONG` | 4.5; 10.1 bundle id test |
+| n2 interrupted-rollback path unreachable | Removed the claim that the next commit finishes a stalled rollback (allocate's check stays as defence in depth only). Failed `rollback` and `done` steps are retried with a 1, 5 and 15 minute back-off through `KnowledgeImportResumeJob`, tracked in the new `Step_Failures__c`. A new hourly `KnowledgeSyncWatchdogJob` replaces the daily watchdog, so the worst-case block is about 75 minutes | 6.2, 7.3 rollback, retries and watchdog; 8; 9; tests 11a and 11g |
