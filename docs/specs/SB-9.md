@@ -196,6 +196,8 @@ global virtual class KnowledgeResultHook {
 - The envelope is the standard generic one: `details: []`, `retryable: true` (SB-7 4.3, see 4.3 above). It names no Salesforce metadata, because the envelope is runtime-neutral (REQ-8).
 - The cause (`setting.ambiguous` or `hook.invalid`, and the record name) goes to the debug log with the request id (6.8), and to a `@TestVisible` field `KnowledgeServiceResolver.lastConfigError` for tests.
 
+**Test seam.** `@TestVisible static void overrideForTest(KnowledgeService service)` makes `get()` return the given implementation, wrapped by the same hook handling. 9a adds it with the resolver. SB-10 test 6 uses it to inject a stub that throws an unexpected exception. It is never called outside tests.
+
 **On upgrade, in short:** base upgrade, `Default` is reset to base values and the extension's and admin's records are untouched, so the hook keeps running. Extension upgrade, its own record is re-deployed with its own value. Extension uninstall, its record goes with it and the core runs with no hook, which is the intended result of removing the extension.
 
 ## 6. Service core (`KnowledgeServiceCore`)
@@ -373,6 +375,7 @@ One validator for all channels, so REST and Apex reject the same inputs with the
 | `type` | A value of the wrong type: a non-integer query parameter, a JSON string where a number is expected, or a `null` where the contract does not allow null (below) | All |
 | `cursor.invalid`, `cursor.stale` | 6.3 | All |
 | `contentType`, `json`, `method`, `nodeId.encoding` | 7.2 | REST only |
+| `context.trigger` | SOSL operations called from trigger context (SB-10 4 rule 5, only if SB-10 experiment E1 confirms the restriction) | Apex only (SB-10) |
 
 `PAYLOAD_TOO_LARGE` is a code, not a rule, and is REST only (6.8).
 
@@ -596,4 +599,5 @@ SB-9 adds the following to `tools/package-check/expected-components.json`:
 | m9 rule list; `tags` limits; null optional fields | Complete rule table; `tags` limits as open point 6; null optional field = contract default | 6.6, 11 |
 | Nit ADR-001 cites `KnowledgeService` as `global` | Cited ADR-001 Part 1 alongside AC-10 | 5.1, 11 |
 | Nit hook subclass must be `global` | Stated | 5.1 |
+| SB-10 m3, m6 | `context.trigger` listed as an Apex-only rule; `overrideForTest` seam defined | 5.2, 6.6 |
 | SB-10 m5 "only global surface" | Now "only `global` extension surface" | 4 |
