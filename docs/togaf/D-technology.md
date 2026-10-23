@@ -241,6 +241,6 @@ None of these gaps needs a new ADR now or blocks the SB-7 to SB-13 specs.
 
 ## 12. Next ADM steps
 
-1. Phases E to F (`E-F-roadmap.md`): work packages mapped to SB-7 to SB-13, transition architectures (T0 factory only, T1 package skeleton, T2 sync and reads, T3 Agentforce and pilot-ready) and the gates.
+1. Phases E to F (`E-F-migration.md`, the SB-15 acceptance-criteria name): work packages mapped to SB-7 to SB-13, transition architectures (T0 factory only, T1 package skeleton, T2 sync and reads, T3 Agentforce and pilot-ready) and the gates.
 2. Promote Phases A to D to Baseline once their PRs (#6, #10, #13 and this one) merge.
 3. Then propose gate G1 ("G1 Design approved") in the Operator Inbox with evidence. ADR-001 and ADR-002 are already Approved.
