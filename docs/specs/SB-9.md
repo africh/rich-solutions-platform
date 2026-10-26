@@ -10,7 +10,7 @@
   - [ip-boundary](../design/ip-boundary.md): base and extension package rules. PR #8, branch `agent/technical-architect/SB-13`.
   - Phase C application architecture, `docs/togaf/C-application.md` (PR #13, branch `agent/enterprise-architect/SB-15-application`): components AC-10, AC-12, AC-14, AC-15, AC-17 and AC-20; interface rules in its section 5.2; gap GA-1 (this spec fixes the extension hook shape).
 - **Principles:** AP-1 Runtime-neutral contracts, AP-2 One service core, SP-1 Public-repo hygiene ([principles.md](../togaf/principles.md))
-- **Spec author:** Technical Architect, 2026-10-21; revised 2026-10-22 for the QA review on PR #14 (change table in section 13)
+- **Spec author:** Technical Architect, 2026-10-21; revised 2026-10-22 for the QA review on PR #14 and 2026-10-26 for SB-11 open point 4 and the QA notes on PRs #14 and #16 (change tables in section 13)
 - **Builder:** Developer
 
 ## 1. Goal
@@ -138,7 +138,7 @@ Apex reserved words cannot be field names. Where the contract property is a rese
 - `List<Map<String, String>> getDetails()`: items of `{path, rule}`.
 - `String getMessage()`: the standard message.
 
-The code is set by `global` static factories (`invalidRequest(details)`, `notFound(nodeId)`, `forbidden()`, `payloadTooLarge()`, `internal()`), so no other code can be made up. `retryable` follows the SB-7 4.3 table with no exceptions: `true` for `INTERNAL` (and `RATE_LIMITED`, which the base never sends), `false` for every other code. SB-10 throws this same exception to subscriber Apex. That is REQ-3's "documented, catchable exception", and defining it here means REST and Apex share one error model.
+The code is set by `global` static factories (`invalidRequest(details)`, `notFound(nodeId)`, `forbidden()`, `payloadTooLarge()`, `internal()`), plus one `public` (package-internal) factory, `rateLimited(details)`, so no other code can be made up. `rateLimited` is used only by the Agentforce actions for an item deferred by their budget check (SB-11 5.1 rule 4; `details` holds one `{path: "", rule: "budget.<limit>"}` item). It is not `global` because subscriber code has no reason to send `RATE_LIMITED`. `retryable` follows the SB-7 4.3 table with no exceptions: `true` for `INTERNAL` and `RATE_LIMITED`, `false` for every other code. SB-10 throws this same exception to subscriber Apex. That is REQ-3's "documented, catchable exception", and defining it here means REST and Apex share one error model.
 
 ## 5. Extension hook (fixes C-application GA-1 and AC-15)
 
@@ -187,7 +187,7 @@ global virtual class KnowledgeResultHook {
 **Resolution (`KnowledgeServiceResolver.get()`):**
 
 1. Read all `Knowledge_Service_Setting__mdt` records once per transaction (`getAll()`, no SOQL).
-2. The effective record is the one with the highest `Priority__c`. If two or more records share the highest priority and it is above 0, the configuration is ambiguous: **fail closed** (below), so a missing or duplicated hook is never guessed.
+2. The effective record is the one with the highest `Priority__c`. A blank `Priority__c` counts as 0. If two or more records share the highest priority, at any level including 0, the configuration is ambiguous: **fail closed** (below), so a missing or duplicated hook is never guessed. Because `Default` is always 0, a non-`Default` record left at 0 or blank fails closed unless another record is above 0; extension and admin records must use priority 1 or more (QA n2).
 3. Candidate limits come from the effective record, falling back field by field to `Default`.
 4. If the effective record's hook is blank, return the core with no hook. Otherwise call `Type.forName(namespace, name)` and `newInstance()`, and check with `instanceof` that the object is a `KnowledgeResultHook`.
 
@@ -364,7 +364,7 @@ The total length of `passages[].text` is never more than `maxChars`. Test 18 che
 One validator for all channels, so REST and Apex reject the same inputs with the same `details` (C-application 5.2 rule 2).
 
 - Each rule failure adds `{path, rule}`. `path` is a JSON pointer into the request, for example `/limit`, or `""` (the whole request) for a rule about the request as a whole.
-- All failures are collected, then thrown together as `400 INVALID_REQUEST`.
+- All failures are collected, then thrown together as `400 INVALID_REQUEST`. The one exception is the `budget.*` rules, which are not validator rules: the Agentforce actions add them to a deferred item with code `RATE_LIMITED` (table below, 6.8).
 - Numbers outside their range are rejected, never clamped, because the contract's `minimum` and `maximum` are hard limits.
 
 **The complete rule list** (QA m9). `rule` is one of:
@@ -372,14 +372,15 @@ One validator for all channels, so REST and Apex reject the same inputs with the
 | Rule | Meaning | Channels |
 |---|---|---|
 | `required`, `minLength`, `maxLength`, `minimum`, `maximum`, `enum`, `pattern`, `minItems`, `maxItems`, `additionalProperties` | The JSON Schema keyword that failed | All (`additionalProperties` is REST-only in practice; Apex DTOs cannot carry unknown fields) |
-| `type` | A value of the wrong type: a non-integer query parameter, a JSON string where a number is expected, or a `null` where the contract does not allow null (below) | All |
+| `type` | A value of the wrong type: a non-integer query parameter, a JSON string where a number is expected, or a `null` item inside a list (below). A `null` optional field is never a `type` failure (below) | All |
 | `cursor.invalid`, `cursor.stale` | 6.3 | All |
 | `contentType`, `json`, `method`, `nodeId.encoding` | 7.2 | REST only |
-| `context.trigger` | SOSL operations called from trigger context (SB-10 4 rule 5, only if SB-10 experiment E1 confirms the restriction) | Apex only (SB-10) |
+| `context.trigger` | SOSL operations called from trigger context (SB-10 4 rule 5, only if SB-10 experiment E1 confirms the restriction) | Apex (SB-10). Also the Agentforce context and search actions when called from a record-triggered flow, if SB-11 experiment E1 shows that the restriction applies there and that `Trigger.isExecuting` is true (SB-11 5.1 rule 6). Agents themselves never run in a trigger |
+| `budget.batch`, `budget.sosl`, `budget.soql`, `budget.cpu`, `budget.heap` | An action item not started because it is past the static cap of 10 or the remaining transaction budget is below the reserve (SB-11 5.1 rule 4). Code `RATE_LIMITED`, `retryable: true`, not `INVALID_REQUEST`; built with `KnowledgeException.rateLimited(details)` (4.3) | Agentforce actions only (SB-11) |
 
 `PAYLOAD_TOO_LARGE` is a code, not a rule, and is REST only (6.8).
 
-**Null optional fields (QA m9; SB-10 review M1).** An Apex caller can set any DTO field to `null`, which JSON callers cannot express the same way. The rule, for every channel: **a `null` optional field means "not supplied", and the contract default applies.** So `maxItems = null` is `limit` 10, `tags = null` is `[]`, `includeBody = null` is `true`, `direction = null` is `both`, `cursor = null` is no cursor. On REST, an explicit JSON `null` for an optional property is treated the same way. A `null` *required* field (`nodeId`, `query`, `question`) fails with rule `required`. A `null` item inside a list (`tags = ['a', null]`) fails with rule `type` at that item's pointer (`/tags/1`). The validator applies defaults first and validates second, so the core never sees a null optional field. This is the shared rule SB-10 rule 2 refers to.
+**Null optional fields (QA m9; SB-10 review M1).** An Apex caller can set any DTO field to `null`, which JSON callers cannot express the same way. The rule, for every channel: **a `null` optional field means "not supplied", and the contract default applies.** So `maxItems = null` is `limit` 10, `tags = null` is `[]`, `includeBody = null` is `true`, `direction = null` is `both`, `cursor = null` is no cursor. On REST, an explicit JSON `null` for an optional property is treated the same way. A `null` *required* field (`nodeId`, `query`, `question`) fails with rule `required`. For this to hold in every runtime, the SB-7 OpenAPI marks the optional request properties nullable (open point 8, QA n1). A `null` item inside a list (`tags = ['a', null]`) fails with rule `type` at that item's pointer (`/tags/1`). The validator applies defaults first and validates second, so the core never sees a null optional field. This is the shared rule SB-10 rule 2 refers to.
 
 **Limits not in SB-7 4.1 (QA m9).** The `tags` item rules (at most 10 tags, each 1 to 255 characters) come from SB-8 (`Tag__c` is Text(255)) and from the 10 semi-joins in 6.1. SB-7 4.1 does not state them. They are listed in section 11 for the SB-7 build PR to write into the OpenAPI document as `maxItems: 10` and `minLength: 1, maxLength: 255`.
 
@@ -401,10 +402,11 @@ One validator for all channels, so REST and Apex reject the same inputs with the
 | No `Knowledge_Read`, or a guest user | `FORBIDDEN` | 403 |
 | REST body larger than 16 KB (read requests are small); REST only, raised by `KnowledgeException.payloadTooLarge()` | `PAYLOAD_TOO_LARGE` | 413 |
 | Invalid or ambiguous hook configuration (5.2); a hook throws anything other than `notFound`; any other unexpected exception | `INTERNAL` (`retryable: true`, `details: []`, as SB-7 4.3) | 500 |
+| An Agentforce action item deferred by the budget check (SB-11 5.1 rule 4); raised by `KnowledgeException.rateLimited(details)` | `RATE_LIMITED` (`retryable: true`, one `budget.*` detail) | 429 (never sent over REST; the actions return it as a result) |
 
 - `INTERNAL` messages are generic and carry the platform request id (`Request.getCurrent().getRequestId()`) so an admin can find the log. They never include a stack trace, note text or the query (SB-8 section 9 rule).
 - The core logs the exception type, the request id and, for configuration errors, the cause (`hook.invalid` or `setting.ambiguous`) and record name, at `ERROR` level with `System.debug`, and nothing else.
-- `RATE_LIMITED` is never sent by the base package. The platform's own API limits apply.
+- `RATE_LIMITED` is sent only by the Agentforce actions, for an item deferred by their budget check (SB-11 5.1 rule 4). REST and the Apex API never send it; the platform's own API limits apply there.
 
 ## 7. REST endpoints (Exposure layer)
 
@@ -482,6 +484,8 @@ The Salesforce-specific runtime notes live here, not in `contracts/` (REQ-8). 9a
 | Request body | 16 KB | 7.2 |
 | CPU | 10 s synchronous | Lexical scoring over at most 50 candidates and at most 10 texts; test 18 times the largest case |
 
+The SB-11 action budget reserves (SB-11 5.1 rule 4) are derived from this table. A change to a cost here is made in SB-11 in the same revision.
+
 ## 9. Test approach
 
 ### 9.1 Apex unit tests (9a and 9b)
@@ -509,7 +513,7 @@ These run with `sf apex run test --test-level RunLocalTests` in a development sc
 | 11 | Permission: a user without `Knowledge_Reader` (`System.runAs`), and a guest user through the `userTypeForTest` seam (6.7) | `403 FORBIDDEN`, no content, for all four operations |
 | 12 | Hook: a test subclass of `KnowledgeResultHook` configured through the setting (the test injects the records through a `@TestVisible` seam, since custom metadata cannot be inserted in tests) | Hook runs on all four operations; changes are visible in the REST output |
 | 13 | Hook errors: unknown class, a class that is not a subclass, a hook that throws, a hook that throws `notFound` | `INTERNAL` with `details: []` and `retryable: true`, `lastConfigError = hook.invalid`; `INTERNAL`; `404` passed through |
-| 13b | Setting resolution (5.2): `Default` only (no hook, limits 200/50); `Default` plus an extension record at priority 10 naming a hook (extension wins); plus an admin record at priority 20 with a blank hook (no hook, limits fall back to `Default`); two records at priority 10 | Extension record wins over `Default`; admin override; `INTERNAL` with `lastConfigError = setting.ambiguous` |
+| 13b | Setting resolution (5.2): `Default` only (no hook, limits 200/50); `Default` plus an extension record at priority 10 naming a hook (extension wins); plus an admin record at priority 20 with a blank hook (no hook, limits fall back to `Default`); two records at priority 10; `Default` plus a record with a blank priority and a hook (QA n2) | Extension record wins over `Default`; admin override; `INTERNAL` with `lastConfigError = setting.ambiguous` for both ties, including the tie at 0 |
 | 14 | REST routing: `/nodes/a%2Fb`, `/nodes/a%2Fb/neighbors`, a raw `/nodes/a/b`, an id ending in `%2Fneighbors`, unknown query parameter, wrong method, wrong content type, bad JSON, 16 KB + 1 body | 7.2 rules and codes |
 | 15 | Search page of 50 nodes with 100,000-character bodies | Heap under 6 MB; snippets right |
 | 16 | `getContext` keyword extraction: stop words, short tokens, duplicates, 10-keyword cap, a question with no keywords | 6.5 step 1 |
@@ -564,11 +568,12 @@ SB-9 adds the following to `tools/package-check/expected-components.json`:
 
 1. `bundle` nullable in `SearchResult` and `ContextResult` (4.2): the Developer writes it into the OpenAPI document in the SB-7 build PR. If Alex prefers, the Technical Architect adds an errata line to `SB-7.md` after PR #7 merges.
 2. REQ-15 (Needs Alex): per-note access. MVP is package level (6.7).
-3. REQ-13 (Needs Alex): citations. `citation` is filled anyway (6.5).
+3. Citations: `citation` is filled anyway (6.5). They serve REQ-13, "End-to-end Agentforce answer from the knowledge graph" (Needs Alex), through SB-11.
 4. ADR-001 Part 1 and C-application AC-10 list `KnowledgeService` as `global`. This spec keeps it `public` and makes `KnowledgeResultHook` the extension surface (5.1). The Technical Architect commented on PR #13; an ADR-001 errata line is added if Alex asks.
+5. AGENTS.md ownership rows for `packages/` and `tools/`: the open Technical Architect Inbox Blocker of 2026-10-15. Developer PRs call this out and do not edit AGENTS.md.
 6. `tags` limits for the SB-7 build PR (6.6): `searchNodes.tags` gets `maxItems: 10` and items `minLength: 1, maxLength: 255` in the OpenAPI document. Like open point 1, this is a 1.x clarification, not a breaking change, because no runtime accepted more before.
 7. The same upgrade reset applies to SB-8's packaged, subscriber-editable `Knowledge_Sync_Setting__mdt` `Default` record (purge and budget settings, not a security control). It is noted here for the SB-8 8b PR, which can use the same priority pattern as 5.2; it is not a blocker for SB-9.
-5. AGENTS.md ownership rows for `packages/` and `tools/`: the open Technical Architect Inbox Blocker of 2026-10-15. Developer PRs call this out and do not edit AGENTS.md.
+8. Nullable optional request properties for the SB-7 build PR (6.6, QA n1): every optional property of the four request schemas (for example `limit`, `cursor`, `tags`, `includeBody` and `direction`; the full list is every property not in `required`) is written as nullable in the OpenAPI document, with the note "`null` means not supplied; the default applies". A strict second runtime then accepts `{"limit": null}` exactly as Salesforce does. Like open points 1 and 6, this is a 1.x clarification, not a breaking change.
 
 ## 12. Definition of done for the Developer PRs
 
@@ -581,7 +586,9 @@ SB-9 adds the following to `tools/package-check/expected-components.json`:
 - `python build.py` is unaffected (no changes to `research/`, `template.html` or `build.py`).
 - Each PR links SB-9 and this spec. The story's PR Link points at the latest slice PR.
 
-## 13. Changes in this revision (QA review on PR #14, 2026-10-21)
+## 13. Changes by revision
+
+### 13.1 Revision 2 (QA review on PR #14, 2026-10-21)
 
 | Finding | Change | Sections |
 |---|---|---|
@@ -601,3 +608,17 @@ SB-9 adds the following to `tools/package-check/expected-components.json`:
 | Nit hook subclass must be `global` | Stated | 5.1 |
 | SB-10 m3, m6 | `context.trigger` listed as an Apex-only rule; `overrideForTest` seam defined | 5.2, 6.6 |
 | SB-10 m5 "only global surface" | Now "only `global` extension surface" | 4 |
+
+### 13.2 Revision 3 (SB-11 open point 4 and QA notes, 2026-10-26)
+
+| Source | Change | Sections |
+|---|---|---|
+| SB-11 open point 4 (a) | `budget.batch`, `budget.sosl`, `budget.soql`, `budget.cpu`, `budget.heap` added to the rule table as action-only rules with code `RATE_LIMITED` | 6.6 |
+| SB-11 open point 4 (b) | "`RATE_LIMITED` is never sent by the base package" now reads "sent only by the Agentforce actions"; new 6.8 table row | 4.3, 6.8 |
+| SB-11 open point 4 (c) | `context.trigger` row covers the actions from record-triggered flows, conditional on SB-11 E1 | 6.6 |
+| QA note 1 on #16 | `public` factory `KnowledgeException.rateLimited(details)`, so the Developer does not hand-build the envelope | 4.3, 6.6, 6.8 |
+| QA n1 on #14 | `type` row no longer reads against the null rule; open point 8 has the SB-7 build PR mark optional request properties nullable | 6.6, 11 |
+| QA n2 on #14 | Blank priority counts as 0; a tie at the top priority fails closed at any level, including 0; test 13b covers the tie at 0 | 5.2, 9.1 |
+| QA n3 on #14 | Open points renumbered in order | 11 |
+| QA note 3 on #16 | REQ-13 is no longer called "citations" | 11 |
+| Cross-spec | Section 8 notes that SB-11's budget reserves derive from it | 8 |
