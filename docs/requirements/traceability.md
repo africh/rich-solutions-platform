@@ -2,7 +2,7 @@
 
 Owner: Business Analyst. Requirements are authored in the Notion Requirements database; this file is a public-safe copy of the trace from requirement to story to spec to PR. Story IDs are Sprint Board IDs (shown in Notion as `RSP-n`, referred to as `SB-n` in branch names).
 
-Last updated: 2026-10-26 (seeded from the approved Vision Brief in SB-3; refreshed after PRs #2 to #4 merged, for open PRs #6 to #17, and after PR #9 merged).
+Last updated: 2026-10-27 (seeded from the approved Vision Brief in SB-3; refreshed after PRs #2 to #4 merged, for open PRs #6 to #19, and after PR #9 merged).
 
 ## Status key
 
@@ -15,15 +15,15 @@ Last updated: 2026-10-26 (seeded from the approved Vision Brief in SB-3; refresh
 | Req | Requirement | Type | Priority | Status | Source | Story | Spec | PR |
 |---|---|---|---|---|---|---|---|---|
 | REQ-1 | Knowledge-graph sync from GitHub-hosted Obsidian vault | Functional | Must | Approved | Vision Brief, Must do #1 | SB-8 | docs/specs/SB-8.md (PR #11, open, QA passed) | #11 (spec, open, awaiting merge) |
-| REQ-2 | Knowledge-backed service calls via REST endpoints | Functional | Must | Approved | Vision Brief, Must do #2 | SB-9 | docs/specs/SB-9.md (PR #14, open, QA passed) | #14 (spec, open, awaiting merge) |
+| REQ-2 | Knowledge-backed service calls via REST endpoints | Functional | Must | Approved | Vision Brief, Must do #2 | SB-9 | docs/specs/SB-9.md (PR #14, open, QA passed; rev 3 in PR #19, stacked on #14 and #16, QA passed) | #14 (spec, open, awaiting merge); #19 (spec rev 3, open, awaiting merge after #14 and #16) |
 | REQ-3 | Knowledge-backed service calls via Apex API | Functional | Must | Approved | Vision Brief, Must do #2 | SB-10 | docs/specs/SB-10.md (PR #15, open, QA passed; depends on #14) | #15 (spec, open, awaiting merge) |
-| REQ-4 | Knowledge-backed service calls via Agentforce actions | Functional | Must | Approved | Vision Brief, Must do #2 | SB-11 | docs/specs/SB-11.md (PR #16, open, QA passed) | #16 (spec, open, awaiting merge) |
+| REQ-4 | Knowledge-backed service calls via Agentforce actions | Functional | Must | Approved | Vision Brief, Must do #2 | SB-11 | docs/specs/SB-11.md (PR #16, open, QA passed; QA notes applied in PR #19) | #16 (spec, open, awaiting merge); #19 (follow-up, open) |
 | REQ-5 | Installs cleanly as an unlocked 2GP package | Constraint | Must | Approved | Vision Brief, Must do #3 | SB-12 | docs/specs/SB-12.md (PR #12, open, QA passed) | #12 (spec, open, awaiting merge) |
 | REQ-6 | Clear IP line between package and per-client logic | Constraint | Must | Approved | Vision Brief, Must do #4 | SB-13 | docs/design/ip-boundary.md (PR #8, open, QA passed) | #8 (open, awaiting merge) |
 | REQ-7 | Factory work and decisions logged in Notion | Non-functional | Must | Approved | Vision Brief, Must do #5 | SB-3 | – | #3 |
 | REQ-8 | Runtime-neutral sync format and service contracts | Non-functional | Should | Approved | Vision Brief, Future enhancements | SB-7 | docs/specs/SB-7.md (PR #7, open, QA passed) | #7 (spec, open, awaiting merge) |
 
-Related design work: SB-5 (ADR-001, package structure and sync approach, Approved, PR #2) informs REQ-1, REQ-5, REQ-6 and REQ-8. SB-15 (TOGAF Phases B to F, Enterprise Architect; Phase B in PR #6, Phase C Data in PR #10, Phase C Application in PR #13 and Phase D Technology in PR #17, all open and QA passed; Phases E and F not yet written) traces REQ-6 and REQ-8. The SB-7 spec (PR #7) and SB-13 design (PR #8) passed QA and are awaiting merge. The SB-12 spec (PR #12) passed QA and is awaiting merge. The SB-8 spec (PR #11) passed QA re-review and is awaiting merge. The SB-9 spec (PR #14) and SB-10 spec (PR #15) passed QA re-review and are awaiting merge. The SB-11 spec (PR #16) passed QA re-review and is awaiting merge. SB-14 (ADR-002, hybrid agent runtime, Approved, PR #9 merged) is factory tooling and traces no product requirement.
+Related design work: SB-5 (ADR-001, package structure and sync approach, Approved, PR #2) informs REQ-1, REQ-5, REQ-6 and REQ-8. SB-15 (TOGAF Phases B to F, Enterprise Architect; Phase B in PR #6, Phase C Data in PR #10, Phase C Application in PR #13, Phase D Technology in PR #17 and Phases E and F Opportunities and Migration in PR #18, all open and QA passed; the file set is complete once all five merge) traces REQ-6 and REQ-8. The SB-7 spec (PR #7) and SB-13 design (PR #8) passed QA and are awaiting merge. The SB-12 spec (PR #12) passed QA and is awaiting merge. The SB-8 spec (PR #11) passed QA re-review and is awaiting merge. The SB-9 spec (PR #14) and SB-10 spec (PR #15) passed QA re-review and are awaiting merge. The SB-11 spec (PR #16) passed QA re-review and is awaiting merge. PR #19 (SB-9 rev 3 plus SB-11 QA notes) passed QA and is stacked: merge #14, then #16, then #19. SB-14 (ADR-002, hybrid agent runtime, Approved, PR #9 merged) is factory tooling and traces no product requirement.
 
 ## Waiting on Alex
 
@@ -49,12 +49,12 @@ Related design work: SB-5 (ADR-001, package structure and sync approach, Approve
 | SB-3 | Seed initial requirements from Vision Brief | P0 Foundations | Done | REQ-7 |
 | SB-7 | Define runtime-neutral knowledge bundle schema and service contracts | P1 Architecture | Ready for Dev (spec PR #7) | REQ-8 |
 | SB-8 | Knowledge-graph sync: compile Obsidian vault from GitHub and load it into the org | P2 MVP build | Awaiting Merge (spec PR #11, QA passed) | REQ-1 |
-| SB-9 | Knowledge service core and REST endpoints | P2 MVP build | Awaiting Merge (spec PR #14, QA passed) | REQ-2 |
+| SB-9 | Knowledge service core and REST endpoints | P2 MVP build | Awaiting Merge (spec PR #14, QA passed; rev 3 PR #19, QA passed) | REQ-2 |
 | SB-10 | Global Apex API for knowledge service calls | P2 MVP build | Awaiting Merge (spec PR #15, QA passed) | REQ-3 |
-| SB-11 | Agentforce actions for knowledge service calls | P2 MVP build | Awaiting Merge (spec PR #16, QA passed) | REQ-4 |
+| SB-11 | Agentforce actions for knowledge service calls | P2 MVP build | Awaiting Merge (spec PR #16, QA passed; follow-up in PR #19) | REQ-4 |
 | SB-12 | Unlocked 2GP package project with clean scratch-org and sandbox install | P2 MVP build | Awaiting Merge (spec PR #12, QA passed) | REQ-5 |
 | SB-13 | IP boundary: base package vs client extension package convention | P1 Architecture | Awaiting Merge (PR #8, QA passed) | REQ-6 |
 | SB-14 | ADR-002: Hybrid cloud/local agent runtime (design + governance guide) | P0 Foundations | Done (PR #9 merged) | – (factory tooling) |
-| SB-15 | TOGAF Phases B to F: Business, Data, Application, Technology, Opportunities & Migration | P1 Architecture | Awaiting Merge (Phase B PR #6, Phase C Data PR #10, Phase C Application PR #13, Phase D Technology PR #17; Phases E and F to come) | REQ-6, REQ-8 |
+| SB-15 | TOGAF Phases B to F: Business, Data, Application, Technology, Opportunities & Migration | P1 Architecture | Awaiting Merge (Phase B PR #6, Phase C Data PR #10, Phase C Application PR #13, Phase D Technology PR #17, Phases E and F PR #18; all QA passed) | REQ-6, REQ-8 |
 
 Acceptance criteria (Given/When/Then) for each requirement live in Notion.
