@@ -1,9 +1,9 @@
 # Phases E and F: Opportunities and Solutions, Migration Planning
 
 - **Status:** Draft
-- **Date:** 2026-10-26
+- **Date:** 2026-10-28
 - **Owner:** Enterprise Architect
-- **Story:** SB-15 "TOGAF Phases B to F: Business, Data, Application, Technology, Opportunities & Migration" (Notion Sprint Board). The file name follows the SB-15 acceptance criteria (`E-F-migration.md`); the Phase A next-steps list calls it `E-F-roadmap.md`, which means this file
+- **Story:** SB-15 "TOGAF Phases B to F: Business, Data, Application, Technology, Opportunities & Migration" (Notion Sprint Board). The file name follows the SB-15 acceptance criteria (`E-F-migration.md`); the Phase A next-steps list calls it `E-F-roadmap.md`, which means this file; A-vision.md should be updated to the new name in the Baseline pass.
 - **Sources:** Notion Vision Brief (approved 2026-10-13, gate G0), [`GOAL.md`](../../GOAL.md), Notion Sprint Board and Requirements, Operator Inbox
 - **Related requirements:** REQ-1 to REQ-8 (Approved); REQ-12 to REQ-15 (Needs Alex); see [`docs/requirements/traceability.md`](../requirements/traceability.md)
 - **Related ADRs:** [ADR-001](../adr/ADR-001-2gp-package-structure-and-knowledge-graph-sync.md) 2GP package structure and knowledge-graph sync (Approved 2026-10-15); [ADR-002](../adr/ADR-002-hybrid-agent-runtime.md) hybrid cloud/local agent runtime (Approved). No new ADR is proposed here.
@@ -36,7 +36,7 @@ One work package per Sprint Board story, numbered to match (WP-7 is SB-7). Slice
 | **WP-8** Knowledge sync | SB-8 | 8a compiler, push, workflow template; 8b storage, import, commit and purge; 8c end-to-end run (SB-8 spec 2) | AC-3, AC-4, AC-5; AC-11 to AC-13, AC-16 | 8a: WP-7. 8b: 12a. 8c: 8a, 8b, Dev Hub | 8a: T1. 8b: T2. 8c: T3 | REQ-1, REQ-8 |
 | **WP-9** Service core and REST | SB-9 | 9a core reads and `/nodes`; 9b search and context; 9c end-to-end and OpenAPI check (SB-9 spec 2) | AC-10, AC-12, AC-14, AC-15, AC-17; `Knowledge_Reader` (AC-20) | 9a: WP-7, 8b, 12a. 9b: 9a. 9c: 9b, 8c | 9a, 9b: T2. 9c: T3 | REQ-2 (REQ-15 pending) |
 | **WP-10** Global Apex API | SB-10 | 10a (SB-10 spec 2) | AC-18 | 9b | T2 | REQ-3 |
-| **WP-11** Agentforce actions | SB-11 | 11a invocable actions; 11b unpackaged agent sample and agent test (SB-11 spec 2) | AC-19 | 11a: 9b, 12a. 11b: 11a, Agentforce-capable scratch org | T3 | REQ-4 (REQ-13 pending) |
+| **WP-11** Agentforce actions | SB-11 | 11a invocable actions; 11b unpackaged agent sample and agent test (SB-11 spec 2) | AC-19 | 11a: 9b, 12a. 11b: 11a, the 12a packaging experiment result (SB-11 spec 5.3), Agentforce-capable scratch org | T3 | REQ-4 (REQ-13 pending) |
 | **WP-12** Package project | SB-12 | 12a skeleton, `package-check`, scripts, CI workflow; 12b install verification and sandbox run (SB-12 spec 2) | AC-20, AC-21; TC-8 to TC-10; ENV-3 to ENV-6 | 12a: G1 (version create needs Dev Hub). 12b: 8b, WP-9, WP-10, 11a, sandbox | 12a: T1. 12b: T3 | REQ-5, REQ-6 (REQ-12 pending) |
 | **WP-13** IP boundary | SB-13 | No code slice: the design and PR-template item (PR #8). Enforcement is built inside 12a (`package-check` S1 and S3) | Convention; IF-10 rules | PR #8 merge | T1 (with 12a) | REQ-6 |
 
@@ -59,7 +59,7 @@ These are Alex decisions or account actions. None is a work package; each is alr
 
 | ID | Prerequisite | Needed by | Inbox item |
 |---|---|---|---|
-| PRE-1 | Merge the P1 spec and architecture PRs | G1, then every WP | QA Merge PR items for #5 to #8 and #10 to #17 |
+| PRE-1 | Merge the P1 spec and architecture PRs | G1, then every WP | QA Merge PR items for #5 to #8 and #10 to #19 |
 | PRE-2 | Folder owners for `contracts/`, `tools/`, `templates/`, `packages/` in AGENTS.md | WP-7 onward (Developer folder rights) | TA Blocker 2026-10-15 (decision b) |
 | PRE-3 | Agent-added workflow files (`contracts-check`, `package-ci`) | WP-7, 12a CI evidence; otherwise checks run locally with output in the PR | TA question 2026-10-20 |
 | PRE-4 | Dev Hub, namespace, package name; optional CI connected app and secrets | 12a version create, 8c, 9c, 12b | TA question 2026-10-19 |
@@ -106,7 +106,7 @@ Gates follow principle BP-3: an agent proposes with evidence, Alex decides. Each
 | Gate | Phase transition | Criteria | Status |
 |---|---|---|---|
 | **G0 Vision approved** | P0 → P1 | Vision Brief approved | Passed 2026-10-13 |
-| **G1 Design approved** | P1 → P2 (T0 → T1) | Phases A to D Baseline on `main`; ADR-001 and ADR-002 Approved; SB-7 to SB-13 specs merged; this document merged | Defined in [principles.md](principles.md). The Enterprise Architect raises one Inbox item when the criteria hold |
+| **G1 Design approved** | P1 → P2 (T0 → T1) | Phases A to D Baseline on `main`; ADR-001 and ADR-002 Approved (as defined in [principles.md](principles.md)). Proposed additions: SB-7 to SB-13 specs merged; this document merged | Core criteria defined in principles.md; the additions are proposed here, and principles.md is aligned in the Baseline pass if Alex accepts them. The Enterprise Architect raises one Inbox item when the criteria hold |
 | **G2 MVP accepted** (proposed) | P2 → P3 (T3 → pilot) | SB-7 to SB-13 Done; all REQ-1 to REQ-8 acceptance criteria shown with evidence in the PRs; a beta version passes `install-and-test` on a plain scratch org and on the sandbox; REQ-12 to REQ-15 either Approved and met, or explicitly deferred by Alex; no open Defect of high severity | Proposed here; Alex confirms or changes it when deciding G1 |
 | **G3 Pilot accepted** (proposed) | P3 → next accelerator | Promoted version installed in one client org; the client's residency and model-terms questions (C-data section 7, Phase D section 8) answered in Notion; pilot sponsor acceptance recorded by Alex in Notion only (SP-1) | Proposed here; Alex confirms or changes it when deciding G1 |
 
@@ -147,7 +147,7 @@ The merge order in P1 follows the QA Merge PR items: SB-7 first because every sp
 
 ### 6.3 Timing
 
-The only dated target is the proposed success metric "one client pilot by late January 2027" (REQ-14, Needs Alex). P2 has 9 code slices and 3 evidence slices. With 12 PRs waiting and no merge since PR #9, the pilot date is at risk unless P1 merges soon and PRE-2 to PRE-5 are answered with G1. This is a risk statement, not a schedule commitment; the Project Manager owns dates on the Sprint Board.
+The only dated target is the proposed success metric "one client pilot by late January 2027" (REQ-14, Needs Alex). P2 has 9 code slices and 3 evidence slices. With 14 PRs waiting and no merge since PR #9, the pilot date is at risk unless P1 merges soon and PRE-2 to PRE-5 are answered with G1. This is a risk statement, not a schedule commitment; the Project Manager owns dates on the Sprint Board.
 
 ### 6.4 Rollback and coexistence
 
@@ -159,7 +159,7 @@ The only dated target is the proposed success metric "one client pilot by late J
 
 | # | Risk | Effect | Mitigation |
 |---|---|---|---|
-| RM-1 | P1 PRs stay unmerged | G1 cannot pass; P2 cannot start; rebase churn grows (12 open PRs) | One merge round in the order of section 6.1; RM scope-change items already propose slowing idle agents |
+| RM-1 | P1 PRs stay unmerged | G1 cannot pass; P2 cannot start; rebase churn grows (14 open PRs) | One merge round in the order of section 6.1; RM scope-change items already propose slowing idle agents |
 | RM-2 | Account actions (PRE-4 to PRE-6) arrive late | T3 evidence and G2 slip, even with all code merged | Code slices proceed without them; evidence slices trail |
 | RM-3 | Experiments in 9a, 10a, 11a, 12a (for example SOSL in triggers, Agentforce packaging) contradict a spec assumption | Rework in later slices | Experiments run in the first slice of each story, results go in the PR description, and the TA revises the spec before the next slice |
 | RM-4 | REQ-12 to REQ-15 answered late or with stricter terms (for example per-note access) | G2 acceptance bar moves; kg-bundle may need an optional `access` object (C-data GD-2) | A minor contract version, per SB-7 7; no change to the transition order |
